@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TargetPG – NEET PG Study Tracker</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🩺</text></svg>"/>
+<meta name="theme-color" content="#7c3aed"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="TargetPG"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<script>
+// ── INLINE MANIFEST (no separate file needed) ──
+(function(){
+  const manifest = {
+    name: "TargetPG",
+    short_name: "TargetPG",
+    description: "NEET PG Daily Study Tracker",
+    start_url: window.location.href.split('?')[0],
+    scope: window.location.pathname.replace(/\/[^\/]*$/, '/') || '/',
+    display: "standalone",
+    background_color: "#0a0a12",
+    theme_color: "#7c3aed",
+    orientation: "portrait-primary",
+    prefer_related_applications: false,
+    icons: [
+      { src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+      { src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = url;
+  document.head.appendChild(link);
+})();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#0a0a12;}
+.notif-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;}
+.notif-box{background:linear-gradient(135deg,#0d0d25,#0a1a2e);border:2px solid #7c3aed;border-radius:16px;padding:22px;max-width:400px;width:100%;box-shadow:0 0 40px rgba(124,58,237,0.4);}
+.notif-title{font-size:17px;font-weight:700;color:#a78bfa;margin-bottom:6px;font-family:'DM Mono',monospace;}
+.notif-body{font-size:12px;color:#c4b5fd;margin-bottom:14px;line-height:1.7;font-family:'DM Mono',monospace;}
+.notif-inp{width:100%;background:#070714;border:1px solid #4f46e5;color:#ddd8f0;border-radius:8px;padding:10px 12px;font-size:13px;font-family:'DM Mono',monospace;outline:none;margin-bottom:12px;box-sizing:border-box;resize:vertical;min-height:75px;}
+.notif-btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-family:'DM Mono',monospace;font-weight:700;color:#fff;background:linear-gradient(135deg,#7c3aed,#4f46e5);margin-right:8px;margin-bottom:4px;}
+.notif-btn.skip{background:linear-gradient(135deg,#374151,#1f2937);}
+.notif-btn.cheat{background:linear-gradient(135deg,#d97706,#b45309);}
+.chat-msg{padding:9px 12px;border-radius:10px;margin-bottom:7px;font-size:12px;line-height:1.7;font-family:'DM Mono',monospace;max-width:88%;word-break:break-word;}
+.chat-msg.user{background:#1a0a3e;border:1px solid #5b21b6;color:#c4b5fd;margin-left:auto;border-bottom-right-radius:3px;}
+.chat-msg.ai{background:#050f1a;border:1px solid #1e3a5f;color:#93c5fd;margin-right:auto;border-bottom-left-radius:3px;}
+.chat-typing{color:#5a6880;font-size:11px;font-style:italic;padding:4px 0;}
+.cheat-banner{background:linear-gradient(135deg,#2a1500,#1a0a00);border:2px solid #d97706;border-radius:12px;padding:14px;margin-bottom:10px;text-align:center;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const SUBJECTS = ["Anatomy","Physiology","Biochemistry","Pathology","Pharmacology","Microbiology","Forensic Medicine","Community Medicine","ENT","Ophthalmology","Medicine","Surgery","Obstetrics","Gynaecology","Pediatrics","Orthopedics","Radiology","Anesthesia","Psychiatry"];
+const TIME_SLOTS = Array.from({length:24},(_,i)=>{
+  const s=`${String(i).padStart(2,"0")}:00`;
+  const e=i===23?"00:00":`${String(i+1).padStart(2,"0")}:00`;
+  return {key:`${s}-${e}`,label:`${s} – ${e}`,hour:i};
+});
+const getToday=()=>new Date().toISOString().split("T")[0];
+const TABS=["📅 Daily","📖 Reading","🧪 QBank","📊 Reports","⚙️ Settings"];
+const isWeekend=()=>{const d=new Date().getDay();return d===0||d===6;};
+
+// ── SERVICE WORKER — FULLY INLINE (no sw.js file needed) ──
+let _swReg = null;
+
+const SW_SOURCE = `
+const DB_NAME = 'medtracker-sw-db';
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,1);r.onupgradeneeded=e=>e.target.result.createObjectStore('s',{keyPath:'k'});r.onsuccess=e=>res(e.target.result);r.onerror=()=>rej(r.error);});}
+async function dbGet(k){try{const db=await openDB();return new Promise(res=>{const r=db.transaction('s','readonly').objectStore('s').get(k);r.onsuccess=()=>res(r.result?r.result.v:null);r.onerror=()=>res(null);});}catch{return null;}}
+async function dbSet(k,v){try{const db=await openDB();return new Promise(res=>{const tx=db.transaction('s','readwrite');tx.objectStore('s').put({k,v});tx.oncomplete=res;tx.onerror=res;});}catch{}}
+self.addEventListener('install',()=>self.skipWaiting());
+self.addEventListener('activate',e=>{e.waitUntil(clients.claim().then(()=>scheduleCheck()));});
+self.addEventListener('message',async e=>{
+  if(!e.data)return;
+  if(e.data.type==='SCHEDULE_UPDATE'){
+    await dbSet('wakeHour',e.data.wakeHour??8);
+    await dbSet('sleepHour',e.data.sleepHour??1);
+    await dbSet('notifEnabled',e.data.notifEnabled??true);
+    await dbSet('cheatDays',e.data.cheatDays??{});
+    const cl=await clients.matchAll({type:'window'});
+    cl.forEach(c=>c.postMessage({type:'SW_READY'}));
+  }
+});
+function scheduleCheck(){
+  const now=new Date();
+  const ms=(60-now.getSeconds())*1000-now.getMilliseconds()+500;
+  setTimeout(async()=>{await doCheck();scheduleCheck();},ms);
+}
+async function doCheck(){
+  const now=new Date();
+  const h=now.getHours(),m=now.getMinutes();
+  if(m>3)return;
+  const wakeH=(await dbGet('wakeHour'))??8;
+  const sleepH=(await dbGet('sleepHour'))??1;
+  const enabled=(await dbGet('notifEnabled'))??false;
+  const cheats=(await dbGet('cheatDays'))??{};
+  const last=(await dbGet('lastH'))??-1;
+  if(!enabled)return;
+  const today=new Date().toISOString().split('T')[0];
+  if(cheats[today])return;
+  if(h===last)return;
+  const active=sleepH<wakeH?(h>=wakeH||h<sleepH):(h>=wakeH&&h<sleepH);
+  if(!active)return;
+  await dbSet('lastH',h);
+  const cl=await clients.matchAll({type:'window',includeUncontrolled:true});
+  if(cl.some(c=>c.visibilityState==='visible'))return;
+  const pH=(h-1+24)%24;
+  const lbl=String(pH).padStart(2,'0')+':00 – '+String(h).padStart(2,'0')+':00';
+  self.registration.showNotification('⏰ '+lbl+' | TargetPG',{
+    body:'Kya kiya is ghante? Tap karo aur fill karo! 📝',
+    icon:'https://abhivanshsomvanshi-oss.github.io/Targetpg/icon-192.png',
+    badge:'https://abhivanshsomvanshi-oss.github.io/Targetpg/icon-192.png',
+    tag:'hourly-log',renotify:true,requireInteraction:true,
+    vibrate:[200,100,200,100,400],
+    data:{url:'https://abhivanshsomvanshi-oss.github.io/Targetpg/'}
+  });
+}
+self.addEventListener('notificationclick',e=>{
+  e.notification.close();
+  const url=(e.notification.data&&e.notification.data.url)||'https://abhivanshsomvanshi-oss.github.io/Targetpg/';
+  e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(cl=>{
+    for(const c of cl){if('focus' in c)return c.focus();}
+    return clients.openWindow(url);
+  }));
+});
+`;
+
+const registerSW = async () => {
+  if(!('serviceWorker' in navigator)) return null;
+  try {
+    // Create SW from blob — works without separate sw.js file
+    const blob = new Blob([SW_SOURCE], {type: 'application/javascript'});
+    const swUrl = URL.createObjectURL(blob);
+    _swReg = await navigator.serviceWorker.register(swUrl);
+    console.log('[TargetPG] SW registered via blob');
+    return _swReg;
+  } catch(err) {
+    console.warn('[TargetPG] SW blob failed:', err.message);
+    // Fallback: try sw.js file
+    try {
+      _swReg = await navigator.serviceWorker.register('./sw.js');
+      console.log('[TargetPG] SW registered via file');
+      return _swReg;
+    } catch(err2) {
+      console.warn('[TargetPG] SW file also failed:', err2.message);
+      return null;
+    }
+  }
+};
+
+const requestNotifPermission = async () => {
+  if(!("Notification" in window)) return false;
+  if(Notification.permission === "granted") return true;
+  const p = await Notification.requestPermission();
+  return p === "granted";
+};
+
+const sendBrowserNotif = (title, body) => {
+  if(Notification.permission !== "granted"){
+    alert("Pehle notifications enable karo Settings mein!");
+    return;
+  }
+  if(_swReg && _swReg.active) {
+    _swReg.showNotification(title, {
+      body,
+      icon: 'https://abhivanshsomvanshi-oss.github.io/Targetpg/icon-192.png',
+      tag: 'test-notif',
+      requireInteraction: true,
+      vibrate: [200, 100, 200]
+    }).catch(() => new Notification(title, {body}));
+  } else {
+    new Notification(title, {body});
+  }
+};
+
+const updateSWSchedule = async (wakeHour, sleepHour, notifEnabled, cheatDays) => {
+  const payload = {
+    type: 'SCHEDULE_UPDATE',
+    wakeHour: wakeHour ?? 8,
+    sleepHour: sleepHour ?? 1,
+    notifEnabled: notifEnabled ?? true,
+    cheatDays: cheatDays ?? {}
+  };
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage(payload);
+  } else if (_swReg) {
+    const sw = _swReg.active || _swReg.waiting || _swReg.installing;
+    if (sw) sw.postMessage(payload);
+  }
+};
+
+// Register SW on load
+registerSW().then(reg => {
+  if(reg) console.log('[TargetPG] SW ready');
+});
+
+// Listen for SW_LOG_SAVED — when user replies via notification
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data && e.data.type === 'SW_LOG_SAVED') {
+      // Dispatch custom event so React app can pick it up
+      window.dispatchEvent(new CustomEvent('sw-log-saved', { detail: e.data }));
+    }
+  });
+}
+
+function App(){
+  const [tab,setTab]=useState(0);
+  const [apiKeyInput,setApiKeyInput]=useState(()=>localStorage.getItem("gemini_key")||"");
+  const [apiKey,setApiKey]=useState(()=>localStorage.getItem("gemini_key")||"");
+  const [logs,setLogs]=useState(()=>{try{return JSON.parse(localStorage.getItem("daily_logs")||"{}");}catch{return{};}});
+  const [selectedDate,setSelectedDate]=useState(getToday());
+  const [readingData,setReadingData]=useState(()=>{try{return JSON.parse(localStorage.getItem("reading_data")||"{}");}catch{return{};}});
+  const [rdDate,setRdDate]=useState(getToday());
+  const [rdSubject,setRdSubject]=useState(SUBJECTS[0]);
+  const [rdPages,setRdPages]=useState("");
+  const [rdFromPage,setRdFromPage]=useState("");
+  const [rdToPage,setRdToPage]=useState("");
+  const [rdVideoHours,setRdVideoHours]=useState("");
+  const [rdFlashcards,setRdFlashcards]=useState("");
+  const [qbankData,setQbankData]=useState(()=>{try{return JSON.parse(localStorage.getItem("qbank_data")||"{}");}catch{return{};}});
+  const [qbankDate,setQbankDate]=useState(getToday());
+  const [qbankSubject,setQbankSubject]=useState(SUBJECTS[0]);
+  const [qbankTopic,setQbankTopic]=useState("");
+  const [qTotal,setQTotal]=useState("");
+  const [qWrong,setQWrong]=useState("");
+  const [qNotes,setQNotes]=useState("");
+  const [screenshotAnalysis,setScreenshotAnalysis]=useState("");
+  const [ssLoading,setSsLoading]=useState(false);
+  const fileRef=useRef();
+  const [reportType,setReportType]=useState("daily");
+  // goals: { "2024-01-01": [ {id, subject, targetPages, targetVideoHours, targetQBank, note}, ... ] }
+  const [goals,setGoals]=useState(()=>{try{return JSON.parse(localStorage.getItem("daily_goals")||"{}");}catch{return{};}});
+  const [readCounts,setReadCounts]=useState(()=>{try{return JSON.parse(localStorage.getItem("read_counts")||"{}");}catch{return{};}});
+  const [reportOutput,setReportOutput]=useState("");
+  const [reportLoading,setReportLoading]=useState(false);
+  const [fullAnalysis,setFullAnalysis]=useState("");
+  const [fullLoading,setFullLoading]=useState(false);
+  // cheat days: { "2024-01-01": true }
+  const [cheatDays,setCheatDays]=useState(()=>{try{return JSON.parse(localStorage.getItem("cheat_days")||"{}");}catch{return{};}});
+
+  // Target form — supports multiple entries per date
+  const [tgtDate,setTgtDate]=useState(getToday());
+  const [tgtSubject,setTgtSubject]=useState(SUBJECTS[0]);
+  const [tgtPages,setTgtPages]=useState("");
+  const [tgtVideo,setTgtVideo]=useState("");
+  const [tgtQBank,setTgtQBank]=useState("");
+  const [tgtQBankAnalyse,setTgtQBankAnalyse]=useState(false);
+  const [tgtNote,setTgtNote]=useState("");
+  // Pending targets — shown in a preview list before saving all at once
+  const [pendingTargets,setPendingTargets]=useState([]);
+  // Cheat day: manual unlock or auto-suggestion
+  const [cheatDayNote,setCheatDayNote]=useState("");
+
+  // Notification states
+  const [showHourlyPopup,setShowHourlyPopup]=useState(false);
+  const [popupSlot,setPopupSlot]=useState(null);
+  const [popupInput,setPopupInput]=useState("");
+  const [wakeTime,setWakeTime]=useState(()=>localStorage.getItem("wake_time")||"08:00");
+  const [sleepTime,setSleepTime]=useState(()=>localStorage.getItem("sleep_time")||"01:00");
+
+  // Sync SW schedule whenever key state changes
+  const syncSW = (wake, sleep, notif, cheats) => {
+    updateSWSchedule(
+      parseInt((wake||wakeTime).split(":")[0]),
+      parseInt((sleep||sleepTime).split(":")[0]),
+      notif??notifEnabled,
+      cheats??cheatDays
+    );
+  };
+  const [notifEnabled,setNotifEnabled]=useState(()=>localStorage.getItem("notif_enabled")==="true");
+  const [showWakeSetup,setShowWakeSetup]=useState(false);
+  const [lastHourPrompted,setLastHourPrompted]=useState(()=>parseInt(localStorage.getItem("last_hour_prompted")||"-1"));
+  const [midnightPopupShown,setMidnightPopupShown]=useState(()=>localStorage.getItem("midnight_popup_shown")===getToday());
+  const [showCheatConfirm,setShowCheatConfirm]=useState(false);
+  const [cheatSuggestionDismissed,setCheatSuggestionDismissed]=useState(false);
+
+  // Chat
+  const [chatMessages,setChatMessages]=useState([]);
+  const [chatInput,setChatInput]=useState("");
+  const [chatLoading,setChatLoading]=useState(false);
+  const chatEndRef=useRef();
+  const importRef=useRef();
+
+  useEffect(()=>localStorage.setItem("daily_logs",JSON.stringify(logs)),[logs]);
+  useEffect(()=>localStorage.setItem("qbank_data",JSON.stringify(qbankData)),[qbankData]);
+  useEffect(()=>localStorage.setItem("reading_data",JSON.stringify(readingData)),[readingData]);
+  useEffect(()=>localStorage.setItem("daily_goals",JSON.stringify(goals)),[goals]);
+  useEffect(()=>localStorage.setItem("read_counts",JSON.stringify(readCounts)),[readCounts]);
+  useEffect(()=>localStorage.setItem("notif_enabled",notifEnabled),[notifEnabled]);
+  // Sync SW on mount — send current schedule to SW
+  useEffect(()=>{
+    if(notifEnabled) syncSW(wakeTime,sleepTime,true,cheatDays);
+  // eslint-disable-next-line
+  },[]);
+  useEffect(()=>localStorage.setItem("last_hour_prompted",lastHourPrompted),[lastHourPrompted]);
+  useEffect(()=>localStorage.setItem("cheat_days",JSON.stringify(cheatDays)),[cheatDays]);
+  useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[chatMessages]);
+
+  // Hourly notification check
+  useEffect(()=>{
+    if(!notifEnabled) return;
+    const check=()=>{
+      const now=new Date();
+      const h=now.getHours(),m=now.getMinutes();
+      const wakeH=parseInt(wakeTime.split(":")[0]);
+      if(h===23&&m>=45&&!midnightPopupShown){
+        setShowWakeSetup(true);setMidnightPopupShown(true);
+        localStorage.setItem("midnight_popup_shown",getToday());
+        sendBrowserNotif("🩺 TargetPG","Kal ka wake-up time set karo!");
+      }
+      if(h>=wakeH&&m<=7&&h!==lastHourPrompted&&!cheatDays[getToday()]){
+        // h baje alarm baja → pichla slot (h-1 to h) fill karna hai
+        const prevH=h>0?h-1:23;
+        const slot=TIME_SLOTS[prevH];
+        setPopupSlot(slot);setPopupInput("");setShowHourlyPopup(true);
+        setLastHourPrompted(h);
+        sendBrowserNotif(`⏰ ${slot.label}`,"Kya kiya? Fill karo!");
+      }
+    };
+    check();
+    const iv=setInterval(check,60000);
+    return()=>clearInterval(iv);
+  },[notifEnabled,wakeTime,lastHourPrompted,midnightPopupShown,cheatDays]);
+
+  const saveApiKey=()=>{localStorage.setItem("gemini_key",apiKeyInput);setApiKey(apiKeyInput);alert("Key saved!");};
+
+  const exportData=()=>{
+    const data={version:"3.1",exportDate:new Date().toISOString(),daily_logs:logs,reading_data:readingData,qbank_data:qbankData,daily_goals:goals,read_counts:readCounts,cheat_days:cheatDays};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=`TargetPG_Backup_${getToday()}.json`;a.click();URL.revokeObjectURL(url);
+  };
+  const importData=(e)=>{
+    const file=e.target.files[0];if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        if(!window.confirm("Purana data replace hoga. Sure?")) return;
+        if(data.daily_logs){setLogs(data.daily_logs);localStorage.setItem("daily_logs",JSON.stringify(data.daily_logs));}
+        if(data.reading_data){setReadingData(data.reading_data);localStorage.setItem("reading_data",JSON.stringify(data.reading_data));}
+        if(data.qbank_data){setQbankData(data.qbank_data);localStorage.setItem("qbank_data",JSON.stringify(data.qbank_data));}
+        if(data.daily_goals){setGoals(data.daily_goals);localStorage.setItem("daily_goals",JSON.stringify(data.daily_goals));}
+        if(data.read_counts){setReadCounts(data.read_counts);localStorage.setItem("read_counts",JSON.stringify(data.read_counts));}
+        if(data.cheat_days){setCheatDays(data.cheat_days);localStorage.setItem("cheat_days",JSON.stringify(data.cheat_days));}
+        alert("Data import ho gaya!");
+      }catch(err){alert("Error: "+err.message);}
+    };
+    reader.readAsText(file);e.target.value="";
+  };
+
+  // ── TARGET FUNCTIONS ──
+  const addToPending=()=>{
+    if(!tgtPages&&!tgtVideo&&!tgtQBank){alert("Pages, Video ya QBank — kuch toh bharo!");return;}
+    const entry={id:Date.now(),subject:tgtSubject,targetPages:tgtPages?+tgtPages:0,targetVideoHours:tgtVideo?+tgtVideo:0,targetQBank:tgtQBank?+tgtQBank:0,qbankAnalyse:tgtQBankAnalyse,note:tgtNote.trim(),date:tgtDate};
+    setPendingTargets(prev=>[...prev,entry]);
+    setTgtPages("");setTgtVideo("");setTgtQBank("");setTgtQBankAnalyse(false);setTgtNote("");
+  };
+  const removePending=(id)=>setPendingTargets(prev=>prev.filter(p=>p.id!==id));
+  const saveAllTargets=()=>{
+    if(!pendingTargets.length){alert("Pehle kuch targets add karo!");return;}
+    setGoals(prev=>({...prev,[tgtDate]:[...(prev[tgtDate]||[]),...pendingTargets]}));
+    setPendingTargets([]);
+    alert(`✅ ${pendingTargets.length} target(s) saved for ${tgtDate}!`);
+  };
+  const addTarget=()=>{
+    if(!tgtPages&&!tgtVideo&&!tgtQBank){alert("Pages, Video ya QBank — kuch toh bharo!");return;}
+    const newEntry={id:Date.now(),subject:tgtSubject,targetPages:tgtPages?+tgtPages:0,targetVideoHours:tgtVideo?+tgtVideo:0,targetQBank:tgtQBank?+tgtQBank:0,qbankAnalyse:tgtQBankAnalyse,note:tgtNote.trim(),date:tgtDate};
+    setGoals(prev=>({...prev,[tgtDate]:[...(prev[tgtDate]||[]),newEntry]}));
+    setTgtPages("");setTgtVideo("");setTgtQBank("");setTgtQBankAnalyse(false);setTgtNote("");
+  };
+  const deleteGoal=(date,id)=>setGoals(prev=>({...prev,[date]:(prev[date]||[]).filter(g=>g.id!==id)}));
+
+  // Progress for a specific target entry
+  const getTargetProgress=(tgt,date)=>{
+    const rdEntries=(readingData[date]||[]).filter(e=>e.subject===tgt.subject);
+    const qEntries=(qbankData[date]||[]).filter(e=>e.subject===tgt.subject);
+    const actualPages=rdEntries.reduce((a,e)=>a+(e.pages||0),0);
+    const actualVideo=rdEntries.reduce((a,e)=>a+(e.videoHours||0),0);
+    const actualQBank=qEntries.reduce((a,e)=>a+e.total,0);
+    // For QBank+Analyse: check if any entry has notes (analysis done)
+    const actualAnalyse=tgt.qbankAnalyse?qEntries.filter(e=>e.notes&&e.notes.trim().length>5).length>0:null;
+    const pgPct=tgt.targetPages>0?Math.min(100,Math.round(actualPages/tgt.targetPages*100)):null;
+    const vidPct=tgt.targetVideoHours>0?Math.min(100,Math.round(actualVideo/tgt.targetVideoHours*100)):null;
+    const qPct=tgt.targetQBank>0?Math.min(100,Math.round(actualQBank/tgt.targetQBank*100)):null;
+    const analysePct=tgt.qbankAnalyse?(actualAnalyse?100:0):null;
+    const pcts=[pgPct,vidPct,qPct,analysePct].filter(p=>p!==null);
+    const overall=pcts.length>0?Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length):0;
+    return{actualPages,actualVideo,actualQBank,actualAnalyse,pgPct,vidPct,qPct,analysePct,overall};
+  };
+
+  // Overall day target achievement %
+  const getDayOverallPct=(date)=>{
+    const dayGoals=goals[date]||[];
+    if(!dayGoals.length) return null;
+    const pcts=dayGoals.map(g=>getTargetProgress(g,date).overall);
+    return Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length);
+  };
+
+  // Declare cheat day
+  const declareCheatDay=(date)=>{
+    const updated={...cheatDays,[date]:true};
+    setCheatDays(updated);
+    setShowCheatConfirm(false);
+    syncSW(wakeTime,sleepTime,notifEnabled,updated);
+    alert("🍕 Cheat day declared! Rest karo, kal full focus.");
+  };
+  const revokeCheatDay=(date)=>{
+    const updated={...cheatDays};delete updated[date];
+    setCheatDays(updated);
+    syncSW(wakeTime,sleepTime,notifEnabled,updated);
+  };
+
+  // Can suggest cheat day?
+  const canSuggestCheat=(date)=>{
+    if(cheatDays[date]) return false;
+    if(cheatDaysThisWeek()>=1) return false;
+    const wd=new Date(date).getDay();
+    if(wd!==0) return false; // Sirf Sunday
+    // Weekly avg: all days with targets set, avg overall% ≥ 85
+    const weekDays=getWeekDaysWithTargets(date);
+    if(weekDays.length===0) return false;
+    const avgPct=Math.round(weekDays.reduce((a,d)=>a+(getDayOverallPct(d)||0),0)/weekDays.length);
+    return avgPct>=85;
+  };
+  // Get days this week (Mon–today) that have targets set
+  const getWeekDaysThisWeek=(date)=>{
+    const d=new Date(date);
+    const day=d.getDay();
+    const monday=new Date(d);monday.setDate(d.getDate()-(day===0?6:day-1));
+    const days=[];
+    for(let i=0;i<7;i++){const dd=new Date(monday);dd.setDate(monday.getDate()+i);if(dd<=d)days.push(dd.toISOString().split("T")[0]);}
+    return days;
+  };
+  const getWeekDaysWithTargets=(date)=>getWeekDaysThisWeek(date).filter(d=>(goals[d]||[]).length>0);
+  const getCheatSuggestionReason=(date)=>{
+    const weekDays=getWeekDaysWithTargets(date);
+    const avgPct=weekDays.length>0?Math.round(weekDays.reduce((a,d)=>a+(getDayOverallPct(d)||0),0)/weekDays.length):0;
+    return `🌅 Sunday + Weekly avg ${avgPct}% ≥ 85% — Cheat day deserved! 🎉`;
+  };
+  // Count cheat days this week (Mon–Sun)
+  const cheatDaysThisWeek=()=>{
+    const today=new Date();
+    const day=today.getDay();
+    const monday=new Date(today);monday.setDate(today.getDate()-(day===0?6:day-1));
+    monday.setHours(0,0,0,0);
+    return Object.keys(cheatDays).filter(d=>new Date(d)>=monday).length;
+  };
+
+  const incrementReadCount=(s)=>setReadCounts(prev=>({...prev,[s]:(prev[s]||0)+1}));
+  const decrementReadCount=(s)=>setReadCounts(prev=>({...prev,[s]:Math.max(0,(prev[s]||0)-1)}));
+  const updateHourLog=(slotKey,val)=>setLogs(prev=>({...prev,[selectedDate]:{...(prev[selectedDate]||{}),[slotKey]:val}}));
+
+  // Handle reply from notification (SW_LOG_SAVED)
+  useEffect(()=>{
+    const handler = (e) => {
+      const { date, slot, text } = e.detail;
+      setLogs(prev => {
+        const updated = {...prev, [date]: {...(prev[date]||{}), [slot]: text}};
+        localStorage.setItem("daily_logs", JSON.stringify(updated));
+        return updated;
+      });
+      // Show brief confirmation in app if it's open
+      console.log('[TargetPG] Log saved from notification:', slot, text);
+    };
+    window.addEventListener('sw-log-saved', handler);
+    return () => window.removeEventListener('sw-log-saved', handler);
+  }, []);
+  const getDayLogs=(date)=>logs[date]||{};
+
+  const callAI=async(prompt,images=[],maxOut=1500)=>{
+    const key=localStorage.getItem("gemini_key")||"";
+    if(!key) throw new Error("Gemini API Key nahi hai! Settings > API Key mein daalo.");
+    const parts=[];
+    for(const img of images){if(img.source&&img.source.data) parts.push({inline_data:{mime_type:img.source.media_type,data:img.source.data}});}
+    parts.push({text:prompt});
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts}],generationConfig:{maxOutputTokens:maxOut}})});
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message);
+    return data.candidates?.[0]?.content?.parts?.map(p=>p.text||"").join("")||"No response";
+  };
+
+  const addReadingEntry=()=>{
+    if(!rdPages&&!rdVideoHours){alert("Pages ya Video Hours bharo!");return;}
+    const entry={id:Date.now(),date:rdDate,subject:rdSubject,pages:rdPages?+rdPages:0,fromPage:rdFromPage?+rdFromPage:null,toPage:rdToPage?+rdToPage:null,videoHours:rdVideoHours?+rdVideoHours:0,flashcards:rdFlashcards?+rdFlashcards:0};
+    setReadingData(prev=>({...prev,[rdDate]:[...(prev[rdDate]||[]),entry]}));
+    setRdPages("");setRdFromPage("");setRdToPage("");setRdVideoHours("");setRdFlashcards("");
+  };
+  const deleteReadingEntry=(date,id)=>setReadingData(prev=>({...prev,[date]:(prev[date]||[]).filter(e=>e.id!==id)}));
+
+  const getReadingStats=()=>{
+    const all=Object.values(readingData).flat();
+    const bySubject={};
+    all.forEach(e=>{
+      if(!bySubject[e.subject]) bySubject[e.subject]={pages:0,sessions:0,videoHours:0,flashcards:0};
+      bySubject[e.subject].pages+=(e.pages||0);bySubject[e.subject].videoHours+=(e.videoHours||0);
+      bySubject[e.subject].flashcards+=(e.flashcards||0);bySubject[e.subject].sessions+=1;
+    });
+    return{bySubject,totalPages:all.reduce((s,e)=>s+(e.pages||0),0),totalVideoHours:all.reduce((s,e)=>s+(e.videoHours||0),0),totalFlashcards:all.reduce((s,e)=>s+(e.flashcards||0),0),totalSessions:all.length};
+  };
+
+  const getReadingSummaryForReport=(days=null)=>{
+    let entries=Object.values(readingData).flat();
+    if(days){const c=new Date();c.setDate(c.getDate()-days);entries=entries.filter(e=>new Date(e.date)>=c);}
+    const by={};
+    entries.forEach(e=>{if(!by[e.subject])by[e.subject]={pages:0,sessions:0};by[e.subject].pages+=e.pages;by[e.subject].sessions+=1;});
+    return Object.entries(by).map(([s,d])=>`${s}: ${d.pages}pg, ${d.sessions} sessions`).join("\n")||"No reading data";
+  };
+
+  // ── FULL DAY ANALYSIS ──
+  const analyseFullDay=async()=>{
+    const date=selectedDate;
+    const dayLog=logs[date]||{};
+    const filled=Object.entries(dayLog).filter(([,v])=>v?.trim());
+    const readEntries=readingData[date]||[];
+    const qEntries=qbankData[date]||[];
+    const dayGoals=goals[date]||[];
+    if(!filled.length&&!readEntries.length&&!qEntries.length){alert("Kuch bhi log nahi hai!");return;}
+    setFullLoading(true);setFullAnalysis("");setChatMessages([]);
+    try{
+      const logText=filled.length?filled.map(([h,v])=>`${h}: ${v}`).join("\n"):"No hourly log";
+      const totalPages=readEntries.reduce((a,e)=>a+(e.pages||0),0);
+      const totalVid=readEntries.reduce((a,e)=>a+(e.videoHours||0),0);
+      const totalFC=readEntries.reduce((a,e)=>a+(e.flashcards||0),0);
+      const totalQ=qEntries.reduce((a,e)=>a+e.total,0);
+      const totalW=qEntries.reduce((a,e)=>a+e.wrong,0);
+      const acc=totalQ>0?Math.round((1-totalW/totalQ)*100):null;
+      const wrongBreakdown=qEntries.filter(e=>e.wrong>0).map(e=>`${e.subject}/${e.topic}: ${e.wrong}/${e.total} wrong`).join("\n")||"None";
+      const targetLines=dayGoals.map(g=>{
+        const p=getTargetProgress(g,date);
+        let s=`${g.subject}: `;
+        if(g.targetPages>0) s+=`Pages ${p.actualPages}/${g.targetPages}pg (${p.pgPct}%) `;
+        if(g.targetVideoHours>0) s+=`Video ${p.actualVideo}/${g.targetVideoHours}hr (${p.vidPct}%) `;
+        if(g.targetQBank>0) s+=`QBank ${p.actualQBank}/${g.targetQBank}Qs (${p.qPct}%) `;
+        s+=p.overall>=100?"✅ MET":`❌ MISSED (${p.overall}%)`;
+        if(g.note) s+=` [Note: ${g.note}]`;
+        return s;
+      }).join("\n")||"No targets set";
+      const isCheat=cheatDays[date];
+
+      const prompt=`Tu NEET PG coach hai. Hinglish mein bol — direct, specific, no fluff.${isCheat?" Aaj CHEAT DAY tha — light review do, harsh mat hona.":""}
+
+DATE: ${date}${isCheat?" 🍕 CHEAT DAY":""}
+
+━━ HOURLY SCHEDULE ━━
+${logText}
+
+━━ READING ━━
+${readEntries.map(e=>`${e.subject}: ${e.pages||0}pg, ${e.videoHours||0}hr video, ${e.flashcards||0}FC`).join("\n")||"Nothing logged"}
+TOTAL: ${totalPages}pg | ${totalVid}hr video | ${totalFC} FC
+
+━━ QBANK ━━
+${wrongBreakdown}
+Total: ${totalQ}Qs | Wrong: ${totalW} | Accuracy: ${acc!==null?acc+"%":"N/A"}
+
+━━ MULTI-TARGET STATUS ━━
+${targetLines}
+
+FORMAT — crisp sections, hinglish:
+
+━━━ 📋 FULL DAY REPORT – ${date}${isCheat?" 🍕":""}━━━
+
+⏱️ TIME AUDIT
+Productive: Xhr | Wasted: Xhr
+Wasted slots: [slot → reason, short]
+
+📖 READING SNAPSHOT
+${totalPages}pg | ${totalVid}hr video | ${totalFC}FC
+Best: __ | Weakest effort: __
+
+🎯 TARGET ACHIEVEMENT
+[har target entry ke liye: Subject → metric actual/target → MET/MISSED]
+Overall: X% achieved
+
+❌ MISTAKE ANALYSIS
+[har galat topic:]
+• Subject/Topic → Root cause (1 line) → Fix (1 line)
+Common pattern: __
+
+📊 EFFICIENCY: X/10
+
+✅ WINS (3): 1. 2. 3.
+❌ PROBLEMS (3): 1. 2. 3.
+
+🌙 KAL KA PLAN (raat-focused):
+• [Subject]: Xpg + Xhr video
+• QBank: [topic] X Qs
+• Revision: __
+
+💡 NEET TIP: [1 high-yield tip]
+
+Max 40 lines. Direct. Hinglish.`;
+
+      const result=await callAI(prompt,[],2500);
+      setFullAnalysis(result);
+    }catch(e){setFullAnalysis("Error: "+e.message);}
+    setFullLoading(false);
+  };
+
+  // ── AI CHAT ──
+  const sendChat=async()=>{
+    if(!chatInput.trim()) return;
+    const userMsg=chatInput.trim();setChatInput("");
+    const newMsgs=[...chatMessages,{role:"user",content:userMsg}];
+    setChatMessages(newMsgs);setChatLoading(true);
+    try{
+      const context=fullAnalysis?`Context (today's report):\n${fullAnalysis}\n\n`:"";
+      const history=newMsgs.filter(m=>m.role!=="sys").slice(-6).map(m=>`${m.role==="user"?"Student":"Coach"}: ${m.content}`).join("\n");
+      const prompt=`${context}Tu NEET PG coach hai. Hinglish mein, helpful aur direct. Student ke saath freely baat kar.\n\n${history}\nCoach:`;
+      const reply=await callAI(prompt,[],800);
+      setChatMessages(prev=>[...prev,{role:"ai",content:reply}]);
+    }catch(e){setChatMessages(prev=>[...prev,{role:"ai",content:"Error: "+e.message}]);}
+    setChatLoading(false);
+  };
+
+  const addQBankEntry=()=>{
+    if(!qbankTopic.trim()||!qTotal||qWrong===""){alert("Topic, Total aur Wrong bharo!");return;}
+    const entry={date:qbankDate,subject:qbankSubject,topic:qbankTopic.trim(),total:+qTotal,wrong:+qWrong,notes:qNotes.trim(),id:Date.now()};
+    setQbankData(prev=>({...prev,[qbankDate]:[...(prev[qbankDate]||[]),entry]}));
+    setQbankTopic("");setQTotal("");setQWrong("");setQNotes("");
+  };
+  const deleteQBankEntry=(date,id)=>setQbankData(prev=>({...prev,[date]:(prev[date]||[]).filter(e=>e.id!==id)}));
+
+  const analyseScreenshots=async(files)=>{
+    if(!files.length) return;
+    setSsLoading(true);setScreenshotAnalysis("");
+    try{
+      const imgs=await Promise.all(Array.from(files).map(f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res({type:"image",source:{type:"base64",media_type:f.type,data:r.result.split(",")[1]}});r.onerror=rej;r.readAsDataURL(f);})));
+      const prompt=`MBBS student ke galat QBank screenshots. Hinglish mein:\n1. Har wrong Q: Subject & Topic\n2. Mistake pattern\n3. Table: Subject|Topic|# Mistakes\n4. Top 3 topics to revise\n5. Quick fix per topic\nShort & direct.`;
+      const text=await callAI(prompt,imgs,1200);
+      setScreenshotAnalysis(text);
+      const today=getToday();
+      setQbankData(prev=>({...prev,[today]:[...(prev[today]||[]),{date:today,subject:"Mixed (SS)",topic:`Screenshot Batch – ${files.length} imgs`,total:files.length,wrong:files.length,notes:text.substring(0,300),id:Date.now()}]}));
+    }catch(e){setScreenshotAnalysis("Error: "+e.message);}
+    setSsLoading(false);
+  };
+
+  const generateReport=async()=>{
+    setReportLoading(true);setReportOutput("");
+    try{
+      const today=getToday();let prompt="";
+      if(reportType==="daily"){
+        const dayLog=getDayLogs(today),qT=qbankData[today]||[],rdT=readingData[today]||[];
+        const logText=Object.entries(dayLog).filter(([,v])=>v?.trim()).map(([h,v])=>`${h}: ${v}`).join("\n")||"No logs";
+        prompt=`NEET PG Daily Report – ${today}\nLogs:\n${logText}\nReading: ${rdT.reduce((s,e)=>s+e.pages,0)}pg\nQBank:\n${qT.map(e=>`${e.subject}/${e.topic}: ${e.wrong}/${e.total}W`).join("\n")||"None"}\nHinglish: Summary, Wins, Problems, Kal ka plan. Direct.`;
+      }else if(reportType==="weekly"){
+        const allD=Object.keys(logs).sort().slice(-7);
+        const weekPg=allD.flatMap(d=>readingData[d]||[]).reduce((s,e)=>s+e.pages,0);
+        const weekQ=allD.flatMap(d=>qbankData[d]||[]);
+        const ss={};weekQ.forEach(e=>{if(!ss[e.subject])ss[e.subject]={w:0,t:0};ss[e.subject].w+=e.wrong;ss[e.subject].t+=e.total;});
+        prompt=`NEET PG Weekly Report (last 7 days)\nPages: ${weekPg}\nActivity: ${allD.map(d=>`${d}: ${Object.values(logs[d]).filter(Boolean).length} slots`).join(", ")}\nQBank:\n${Object.entries(ss).map(([s,{w,t}])=>`${s}: ${w}/${t}W`).join("\n")||"None"}\nHinglish: Score/10, Top 3 weak topics, Next week plan. Motivating.`;
+      }else{
+        const allQ=Object.values(qbankData).flat();
+        const totalPg=Object.values(readingData).flat().reduce((s,e)=>s+e.pages,0);
+        prompt=`NEET PG Monthly Report\nPages: ${totalPg} | QBank: ${allQ.reduce((s,e)=>s+e.total,0)}Qs\nReading:\n${getReadingSummaryForReport(null)}\nHinglish: Overview, Top 5 weak topics, Revision roadmap. Detailed.`;
+      }
+      setReportOutput(await callAI(prompt,[],1500));
+    }catch(e){setReportOutput("Error: "+e.message);}
+    setReportLoading(false);
+  };
+
+  const getMistakeSummary=()=>{
+    const map={};
+    Object.values(qbankData).flat().forEach(e=>{const k=`${e.subject}||${e.topic}`;if(!map[k])map[k]={subject:e.subject,topic:e.topic,wrong:0,total:0};map[k].wrong+=e.wrong;map[k].total+=e.total;});
+    return Object.values(map).sort((a,b)=>b.wrong-a.wrong).slice(0,10);
+  };
+
+  const savePopupEntry=()=>{
+    if(popupInput.trim()&&popupSlot) updateHourLog(popupSlot.key,popupInput.trim());
+    setShowHourlyPopup(false);setPopupInput("");
+  };
+
+  const enableNotifications=async()=>{
+    const granted=await requestNotifPermission();
+    if(!granted){
+      alert("❌ Permission denied.\n\nChrome → Settings → Site Settings → Notifications → Allow karo.");
+      return;
+    }
+    setNotifEnabled(true);
+    // Register SW
+    const reg = await registerSW();
+    if(!reg){ alert("✅ ON! (App open rakhna background mein)"); return; }
+
+    // Wait for SW to activate (max 3 sec)
+    await new Promise(resolve => {
+      if(reg.active){ resolve(); return; }
+      const sw = reg.installing || reg.waiting;
+      if(!sw){ resolve(); return; }
+      sw.addEventListener('statechange', function handler(){
+        if(sw.state === 'activated'){ sw.removeEventListener('statechange', handler); resolve(); }
+      });
+      setTimeout(resolve, 3000);
+    });
+
+    // Now send schedule
+    await updateSWSchedule(
+      parseInt(wakeTime.split(":")[0]),
+      parseInt(sleepTime.split(":")[0]),
+      true,
+      cheatDays
+    );
+    alert("✅ Notifications ON!\n\nAb app band hone pe bhi aayengi! 🎉\n\n📌 Ek kaam zaroor karo:\nAndroid Settings → Apps → Chrome → Battery → Unrestricted karo");
+  };
+
+  const s={
+    app:{minHeight:"100vh",background:"#0a0a12",color:"#e8e0f0",fontFamily:"'DM Mono','Courier New',monospace",paddingBottom:"80px"},
+    header:{background:"linear-gradient(135deg,#1a0a2e,#0d1b3e)",padding:"14px 16px 10px",borderBottom:"1px solid #2a1f4e",position:"sticky",top:0,zIndex:100},
+    logo:{fontSize:"18px",fontWeight:700,background:"linear-gradient(90deg,#a78bfa,#60a5fa,#34d399)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",display:"inline-block"},
+    sub:{fontSize:"10px",color:"#5a6880",marginTop:"2px"},
+    tabs:{display:"flex",background:"#0c0c1a",borderBottom:"1px solid #1e1e35",overflowX:"auto"},
+    tab:(a)=>({flex:"1",minWidth:"60px",padding:"9px 4px",border:"none",cursor:"pointer",fontSize:"9px",fontFamily:"inherit",background:"transparent",color:a?"#a78bfa":"#3a4060",borderBottom:a?"2px solid #a78bfa":"2px solid transparent",transition:"all .2s",whiteSpace:"nowrap",textAlign:"center"}),
+    page:{padding:"12px"},
+    card:{background:"#0f0f1e",border:"1px solid #1c1c32",borderRadius:"12px",padding:"13px",marginBottom:"10px"},
+    lbl:{fontSize:"10px",color:"#5a6880",marginBottom:"5px",display:"block",textTransform:"uppercase",letterSpacing:"1.2px",fontWeight:600},
+    inp:{width:"100%",background:"#070714",border:"1px solid #252540",color:"#ddd8f0",borderRadius:"8px",padding:"8px 10px",fontSize:"13px",fontFamily:"inherit",outline:"none",boxSizing:"border-box"},
+    ta:{width:"100%",background:"#070714",border:"1px solid #252540",color:"#ddd8f0",borderRadius:"8px",padding:"8px 10px",fontSize:"12px",fontFamily:"inherit",outline:"none",resize:"vertical",boxSizing:"border-box",minHeight:"52px"},
+    sel:{width:"100%",background:"#070714",border:"1px solid #252540",color:"#ddd8f0",borderRadius:"8px",padding:"8px 10px",fontSize:"13px",fontFamily:"inherit",outline:"none"},
+    btn:(c="purple")=>({padding:"8px 14px",borderRadius:"8px",border:"none",cursor:"pointer",fontSize:"12px",fontFamily:"inherit",fontWeight:700,background:c==="purple"?"linear-gradient(135deg,#7c3aed,#4f46e5)":c==="blue"?"linear-gradient(135deg,#2563eb,#0891b2)":c==="red"?"linear-gradient(135deg,#dc2626,#9f1239)":c==="green"?"linear-gradient(135deg,#059669,#0d9488)":c==="orange"?"linear-gradient(135deg,#d97706,#b45309)":"linear-gradient(135deg,#374151,#1f2937)",color:"#fff"}),
+    slotRow:{display:"grid",gridTemplateColumns:"105px 1fr",gap:"5px",marginBottom:"5px",alignItems:"center"},
+    slotBadge:(f)=>({fontSize:"10px",fontWeight:700,color:f?"#c4b5fd":"#2a2a45",background:f?"#1a0a2e":"#0a0a16",border:`1px solid ${f?"#5b21b6":"#1a1a30"}`,borderRadius:"6px",padding:"5px 3px",textAlign:"center",letterSpacing:"0.2px"}),
+    aiBox:{background:"#05050f",border:"1px solid #201545",borderRadius:"10px",padding:"13px",marginTop:"10px",fontSize:"12px",lineHeight:"1.85",color:"#c4b5fd",whiteSpace:"pre-wrap",wordBreak:"break-word"},
+    badge:(c)=>({display:"inline-block",padding:"2px 6px",borderRadius:"4px",fontSize:"10px",fontWeight:700,background:c==="red"?"#3f0a0a":c==="green"?"#0a2a1a":c==="blue"?"#0a1a3a":c==="orange"?"#2a1200":"#1a1a3a",color:c==="red"?"#f87171":c==="green"?"#4ade80":c==="blue"?"#60a5fa":c==="orange"?"#fb923c":"#818cf8",border:`1px solid ${c==="red"?"#7f1d1d":c==="green"?"#14532d":c==="blue"?"#1e3a5f":c==="orange"?"#7c2d12":"#312e81"}`}),
+    row:{display:"flex",gap:"8px",marginBottom:"8px"},
+    bar:(p,c="#ef4444")=>({height:"4px",borderRadius:"3px",background:`linear-gradient(90deg,${c} ${p}%,#1e1e35 0)`,marginTop:"3px"}),
+    grid2:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"},
+    grid3:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"6px"},
+  };
+
+  const dayLog=getDayLogs(selectedDate);
+  const todayQBank=qbankData[qbankDate]||[];
+  const todayReading=readingData[rdDate]||[];
+  const todayReadPages=todayReading.reduce((a,e)=>a+(e.pages||0),0);
+  const todayVideoHours=todayReading.reduce((a,e)=>a+(e.videoHours||0),0);
+  const todayFlashcards=todayReading.reduce((a,e)=>a+(e.flashcards||0),0);
+  const mistakes=getMistakeSummary();
+  const rdStats=getReadingStats();
+  const todayGoals=goals[selectedDate]||[];
+  const isCheatDay=cheatDays[selectedDate];
+  const overallPct=getDayOverallPct(selectedDate);
+
+  return(
+    <div style={s.app}>
+
+      {/* ── HOURLY POPUP ── */}
+      {showHourlyPopup&&popupSlot&&(
+        <div className="notif-overlay">
+          <div className="notif-box">
+            <div className="notif-title">⏰ {popupSlot.label}</div>
+            <div className="notif-body">Is ghante mein kya kiya? Abhi fill karo — baad mein bhool jaoge! 📝</div>
+            <textarea className="notif-inp" placeholder={`e.g. Medicine – Cardiology padha, 30 pages`} value={popupInput} onChange={e=>setPopupInput(e.target.value)} autoFocus/>
+            <div>
+              <button className="notif-btn" onClick={savePopupEntry}>✅ Save</button>
+              <button className="notif-btn skip" onClick={()=>setShowHourlyPopup(false)}>Skip</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MIDNIGHT WAKE SETUP ── */}
+      {showWakeSetup&&(
+        <div className="notif-overlay">
+          <div className="notif-box">
+            <div className="notif-title">🌙 Kal ka Wake-up Time?</div>
+            <div className="notif-body">Kal kis time uthoge? Tab se hourly reminders start honge.</div>
+            <input type="time" className="notif-inp" style={{minHeight:"auto",resize:"none",padding:"10px 12px",fontSize:"16px"}} value={wakeTime} onChange={e=>{setWakeTime(e.target.value);localStorage.setItem("wake_time",e.target.value);}}/>
+            <button className="notif-btn" onClick={()=>setShowWakeSetup(false)}>✅ Set Karo</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── CHEAT DAY CONFIRM ── */}
+      {showCheatConfirm&&(
+        <div className="notif-overlay">
+          <div className="notif-box" style={{border:"2px solid #d97706"}}>
+            <div className="notif-title" style={{color:"#fb923c"}}>🍕 Cheat Day Declare Karo?</div>
+            <div className="notif-body">
+              <div style={{marginBottom:"8px"}}>{getCheatSuggestionReason(selectedDate)}</div>
+              <div style={{fontSize:"11px",color:"#7a6a50",background:"#0a0800",borderRadius:"6px",padding:"8px",lineHeight:"1.7",marginBottom:"8px"}}>
+                ✅ Sunday hai ✓<br/>
+                ✅ Weekly avg 85%+ targets ✓<br/>
+                ✅ Is hafte: {cheatDaysThisWeek()}/1 cheat day used<br/>
+              </div>
+              Kal fresh start! 💪
+            </div>
+            <button className="notif-btn cheat" onClick={()=>declareCheatDay(selectedDate)}>🎉 Yes, Cheat Day!</button>
+            <button className="notif-btn skip" onClick={()=>setShowCheatConfirm(false)}>Nahi, padhna hai</button>
+          </div>
+        </div>
+      )}
+
+      <div style={s.header}>
+        <div style={s.logo}>🩺 TargetPG</div>
+        <div style={s.sub}>NEET PG • 19 Subjects • Daily + Reading + QBank + AI</div>
+      </div>
+      <div style={s.tabs}>{TABS.map((t,i)=><button key={i} style={s.tab(tab===i)} onClick={()=>setTab(i)}>{t}</button>)}</div>
+
+      {/* ━━ TAB 0: DAILY ━━ */}
+      {tab===0&&<div style={s.page}>
+
+        <div style={s.card}>
+          <label style={s.lbl}>Date</label>
+          <input type="date" value={selectedDate} onChange={e=>{setSelectedDate(e.target.value);setCheatSuggestionDismissed(false);}} style={s.inp}/>
+        </div>
+
+        {/* Cheat Day Banner */}
+        {isCheatDay&&(
+          <div className="cheat-banner">
+            <div style={{fontSize:"28px",marginBottom:"4px"}}>🍕</div>
+            <div style={{fontSize:"15px",fontWeight:700,color:"#fb923c",marginBottom:"4px"}}>CHEAT DAY</div>
+            <div style={{fontSize:"11px",color:"#d97706",marginBottom:"10px"}}>Rest karo bhai. Kal full focus.</div>
+            <button style={{...s.btn("red"),fontSize:"11px"}} onClick={()=>revokeCheatDay(selectedDate)}>Revoke — Padhna Hai</button>
+          </div>
+        )}
+
+        {/* Cheat day suggestion */}
+        {!isCheatDay&&canSuggestCheat(selectedDate)&&!cheatSuggestionDismissed&&(
+          <div style={{...s.card,background:"linear-gradient(135deg,#1a0d00,#0d0800)",border:"1px solid #7c3d00",padding:"12px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}}>
+              <div style={{fontSize:"13px",color:"#fb923c",fontWeight:700}}>🍕 Cheat Day Eligible!</div>
+              <span style={{fontSize:"10px",color:"#7a4a00",background:"#1a0a00",border:"1px solid #3a2000",borderRadius:"4px",padding:"2px 6px"}}>{cheatDaysThisWeek()}/1 this week</span>
+            </div>
+            <div style={{fontSize:"11px",color:"#d97706",marginBottom:"10px",lineHeight:"1.6"}}>{getCheatSuggestionReason(selectedDate)}<br/>Hourly reminders band honge, rest karo!</div>
+            <div style={{display:"flex",gap:"8px"}}>
+              <button style={{...s.btn("orange"),flex:1}} onClick={()=>setShowCheatConfirm(true)}>🎉 Declare Karo</button>
+              <button style={{background:"#1a0a00",border:"1px solid #4a2a00",color:"#7a4a00",borderRadius:"8px",padding:"8px 14px",cursor:"pointer",fontSize:"12px",fontFamily:"inherit",fontWeight:700}} onClick={()=>setCheatSuggestionDismissed(true)}>✕ Abhi Nahi</button>
+            </div>
+          </div>
+        )}
+
+        {/* Multi-target display */}
+        {todayGoals.length>0&&!isCheatDay&&(
+          <div style={{...s.card,background:"linear-gradient(135deg,#0d1b3e,#0a1a0a)",border:"1px solid #1a2a3a"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+              <label style={s.lbl}>🎯 Aaj ke Targets</label>
+              {overallPct!==null&&<span style={{fontSize:"13px",fontWeight:700,color:overallPct>=80?"#4ade80":overallPct>=50?"#fbbf24":"#f87171"}}>{overallPct}% done</span>}
+            </div>
+            {todayGoals.map(g=>{
+              const p=getTargetProgress(g,selectedDate);
+              const achieved=p.overall>=100;
+              return(
+                <div key={g.id} style={{background:achieved?"#0a2a0a":"#070714",border:"1px solid "+(achieved?"#22c55e":"#252540"),borderRadius:"10px",padding:"10px",marginBottom:"8px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"6px"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"5px",flexWrap:"wrap"}}>
+                      <span style={{fontSize:"12px",fontWeight:700,color:achieved?"#4ade80":"#c4b5fd"}}>{g.subject}</span>
+                      {g.qbankAnalyse&&<span style={{...s.badge("blue"),background:"#0d0a2e",color:"#8b5cf6",border:"1px solid #4c1d95",fontSize:"9px"}}>🔍 +Analyse</span>}
+                    </div>
+                    <div style={{display:"flex",gap:"5px",alignItems:"center"}}>
+                      <span style={{fontSize:"11px",fontWeight:700,color:achieved?"#4ade80":p.overall>=50?"#fbbf24":"#f87171"}}>{p.overall}%</span>
+                      {achieved&&<span style={s.badge("green")}>✅ DONE</span>}
+                      <button onClick={()=>deleteGoal(selectedDate,g.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#5a2a2a",fontSize:"13px"}}>✕</button>
+                    </div>
+                  </div>
+                  {g.note&&<div style={{fontSize:"10px",color:"#5a6880",marginBottom:"6px",fontStyle:"italic"}}>"{g.note}"</div>}
+                  <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
+                    {g.targetPages>0&&(
+                      <div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:"10px",color:"#4a5a70",marginBottom:"2px"}}>
+                          <span>📖 Pages</span>
+                          <span style={{color:p.pgPct>=100?"#4ade80":p.pgPct>=50?"#fbbf24":"#f87171"}}>{p.actualPages}/{g.targetPages}pg ({p.pgPct}%)</span>
+                        </div>
+                        <div style={{height:"4px",borderRadius:"2px",background:"#1e1e35",overflow:"hidden"}}><div style={{height:"100%",width:p.pgPct+"%",background:p.pgPct>=100?"#22c55e":p.pgPct>=50?"#f59e0b":"#ef4444",transition:"width 0.3s",borderRadius:"2px"}}/></div>
+                      </div>
+                    )}
+                    {g.targetVideoHours>0&&(
+                      <div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:"10px",color:"#4a5a70",marginBottom:"2px"}}>
+                          <span>🎬 Video</span>
+                          <span style={{color:p.vidPct>=100?"#4ade80":p.vidPct>=50?"#60a5fa":"#f87171"}}>{p.actualVideo}/{g.targetVideoHours}hr ({p.vidPct}%)</span>
+                        </div>
+                        <div style={{height:"4px",borderRadius:"2px",background:"#1e1e35",overflow:"hidden"}}><div style={{height:"100%",width:p.vidPct+"%",background:p.vidPct>=100?"#22c55e":p.vidPct>=50?"#2563eb":"#7c3aed",transition:"width 0.3s",borderRadius:"2px"}}/></div>
+                      </div>
+                    )}
+                    {g.targetQBank>0&&(
+                      <div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:"10px",color:"#4a5a70",marginBottom:"2px"}}>
+                          <span>🧪 QBank</span>
+                          <span style={{color:p.qPct>=100?"#4ade80":p.qPct>=50?"#fbbf24":"#f87171"}}>{p.actualQBank}/{g.targetQBank}Qs ({p.qPct}%)</span>
+                        </div>
+                        <div style={{height:"4px",borderRadius:"2px",background:"#1e1e35",overflow:"hidden"}}><div style={{height:"100%",width:p.qPct+"%",background:p.qPct>=100?"#22c55e":p.qPct>=50?"#f59e0b":"#ef4444",transition:"width 0.3s",borderRadius:"2px"}}/></div>
+                      </div>
+                    )}
+                    {g.qbankAnalyse&&(
+                      <div style={{display:"flex",alignItems:"center",gap:"6px",padding:"4px 0"}}>
+                        <span style={{fontSize:"10px",color:"#4a5a70"}}>🔍 Analysis</span>
+                        {p.actualAnalyse
+                          ? <span style={{...s.badge("green"),fontSize:"10px"}}>✅ Done</span>
+                          : <span style={{...s.badge("red"),fontSize:"10px"}}>⏳ Pending</span>
+                        }
+                        <span style={{fontSize:"10px",color:"#3a3a60"}}>QBank entry mein notes daalo</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Hourly Log */}
+        <div style={s.card}>
+          <label style={s.lbl}>⏰ Hourly Log</label>
+          <div style={{maxHeight:"60vh",overflowY:"auto",paddingRight:"2px"}}>
+            {TIME_SLOTS.map(slot=>(
+              <div key={slot.key} style={s.slotRow}>
+                <div style={s.slotBadge(!!dayLog[slot.key]?.trim())}>{slot.label}</div>
+                <input style={s.inp} placeholder="Kya kiya?" value={dayLog[slot.key]||""} onChange={e=>updateHourLog(slot.key,e.target.value)}/>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── MULTI-TARGET BUILDER ── */}
+        <div style={{...s.card,border:"1px solid #1a2a3a",background:"linear-gradient(135deg,#050f1a,#0a0a1e)"}}>
+          <label style={{...s.lbl,color:"#60a5fa"}}>🎯 Target Builder</label>
+          <p style={{fontSize:"11px",color:"#3a5a6a",marginBottom:"10px",lineHeight:"1.6"}}>Ek ya multiple subjects ke alag targets banaao — pages, video, QBank, ya analysis — sab ek saath!</p>
+
+          <div style={{marginBottom:"8px"}}>
+            <label style={s.lbl}>📅 Date</label>
+            <input type="date" value={tgtDate} onChange={e=>setTgtDate(e.target.value)} style={s.inp}/>
+          </div>
+          <div style={{marginBottom:"8px"}}>
+            <label style={s.lbl}>📚 Subject</label>
+            <select value={tgtSubject} onChange={e=>setTgtSubject(e.target.value)} style={s.sel}>
+              {SUBJECTS.map(sub=><option key={sub}>{sub}</option>)}
+            </select>
+          </div>
+
+          {/* Four metric inputs */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px",marginBottom:"8px"}}>
+            <div>
+              <label style={s.lbl}>📖 Pages</label>
+              <input type="number" min="0" placeholder="e.g. 30" value={tgtPages} onChange={e=>setTgtPages(e.target.value)} style={s.inp}/>
+            </div>
+            <div>
+              <label style={s.lbl}>🎬 Video (hr)</label>
+              <input type="number" min="0" step="0.5" placeholder="e.g. 2" value={tgtVideo} onChange={e=>setTgtVideo(e.target.value)} style={s.inp}/>
+            </div>
+            <div>
+              <label style={s.lbl}>🧪 QBank Qs</label>
+              <input type="number" min="0" placeholder="e.g. 50" value={tgtQBank} onChange={e=>setTgtQBank(e.target.value)} style={s.inp}/>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+              <label style={s.lbl}>🔍 QBank Analysis</label>
+              <div style={{display:"flex",alignItems:"center",gap:"8px",padding:"8px 10px",background:"#070714",border:"1px solid "+(tgtQBankAnalyse?"#7c3aed":"#252540"),borderRadius:"8px",cursor:"pointer",minHeight:"36px"}} onClick={()=>setTgtQBankAnalyse(v=>!v)}>
+                <div style={{width:"18px",height:"18px",borderRadius:"4px",background:tgtQBankAnalyse?"#7c3aed":"transparent",border:"2px solid "+(tgtQBankAnalyse?"#7c3aed":"#4a4a70"),display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  {tgtQBankAnalyse&&<span style={{color:"#fff",fontSize:"11px",fontWeight:700}}>✓</span>}
+                </div>
+                <span style={{fontSize:"11px",color:tgtQBankAnalyse?"#c4b5fd":"#5a6880"}}>Analyse bhi karna hai</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{marginBottom:"10px"}}>
+            <label style={s.lbl}>📝 Note (optional)</label>
+            <input placeholder="e.g. Focus on CVS, Renal skip karo" value={tgtNote} onChange={e=>setTgtNote(e.target.value)} style={s.inp}/>
+          </div>
+
+          {/* Add to pending list */}
+          <button style={{...s.btn("blue"),width:"100%",padding:"10px",marginBottom:"10px"}} onClick={addToPending}>
+            ➕ Is Subject Ka Target Add Karo
+          </button>
+
+          {/* Pending targets preview */}
+          {pendingTargets.length>0&&(
+            <div style={{background:"#040410",border:"1px solid #1a2a1a",borderRadius:"10px",padding:"10px",marginBottom:"10px"}}>
+              <div style={{fontSize:"10px",color:"#4a8a4a",marginBottom:"8px",letterSpacing:"1px",fontWeight:700}}>📋 PENDING TARGETS ({pendingTargets.length})</div>
+              {pendingTargets.map((pt,i)=>(
+                <div key={pt.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"7px 0",borderBottom:i<pendingTargets.length-1?"1px solid #0f1f0f":"none"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:"12px",fontWeight:700,color:"#c4b5fd",marginBottom:"2px"}}>{pt.subject}</div>
+                    <div style={{display:"flex",gap:"4px",flexWrap:"wrap"}}>
+                      {pt.targetPages>0&&<span style={s.badge("green")}>📖 {pt.targetPages}pg</span>}
+                      {pt.targetVideoHours>0&&<span style={s.badge("blue")}>🎬 {pt.targetVideoHours}hr</span>}
+                      {pt.targetQBank>0&&<span style={s.badge("orange")}>🧪 {pt.targetQBank}Qs</span>}
+                      {pt.qbankAnalyse&&<span style={{...s.badge("blue"),background:"#1a0a3e",color:"#a78bfa",border:"1px solid #5b21b6"}}>🔍 Analyse</span>}
+                      {pt.note&&<span style={{fontSize:"10px",color:"#5a6880",fontStyle:"italic"}}>"{pt.note}"</span>}
+                    </div>
+                  </div>
+                  <button onClick={()=>removePending(pt.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#7f1d1d",fontSize:"16px",marginLeft:"8px"}}>✕</button>
+                </div>
+              ))}
+              <button style={{...s.btn("green"),width:"100%",padding:"10px",marginTop:"10px",fontSize:"13px"}} onClick={saveAllTargets}>
+                💾 Save All {pendingTargets.length} Target{pendingTargets.length>1?"s":""} for {tgtDate}
+              </button>
+            </div>
+          )}
+
+
+        </div>
+
+        {/* FULL REPORT BUTTON */}
+        <div style={{textAlign:"center",marginBottom:"10px"}}>
+          <button style={{...s.btn("green"),padding:"14px 28px",fontSize:"14px",fontWeight:700,width:"100%"}} onClick={analyseFullDay} disabled={fullLoading}>
+            {fullLoading?"⏳ Report Ban Raha Hai...":"🔥 FULL DAY AI REPORT"}
+          </button>
+          <div style={{fontSize:"10px",color:"#3a5a3a",marginTop:"4px"}}>Hourly + Reading + QBank + All Targets → ek saath analysis</div>
+        </div>
+
+        {fullAnalysis&&(
+          <div style={{...s.card,border:"1px solid #1a3a1a",background:"linear-gradient(135deg,#050f05,#05050f)"}}>
+            <div style={{fontSize:"9px",color:"#3a8a3a",marginBottom:"8px",letterSpacing:"1px"}}>📋 FULL DAY REPORT • {selectedDate}{isCheatDay?" 🍕":""}</div>
+            <div style={s.aiBox}>{fullAnalysis}</div>
+
+            {/* AI Chat */}
+            <div style={{marginTop:"14px",borderTop:"1px solid #1a3a1a",paddingTop:"12px"}}>
+              <label style={{...s.lbl,color:"#60a5fa"}}>💬 AI Coach se Baat Karo</label>
+              <div style={{maxHeight:"280px",overflowY:"auto",marginBottom:"10px",padding:"4px 0"}}>
+                {chatMessages.filter(m=>m.role!=="sys").map((m,i)=>(
+                  <div key={i} className={`chat-msg ${m.role}`}>{m.content}</div>
+                ))}
+                {chatLoading&&<div className="chat-typing">Coach soch raha hai...</div>}
+                <div ref={chatEndRef}/>
+              </div>
+              {chatMessages.length===0&&<div style={{fontSize:"11px",color:"#3a4a60",marginBottom:"8px",fontStyle:"italic"}}>Report ke baad freely baat karo — mistakes poocho, tips lo, plan banao...</div>}
+              <div style={{display:"flex",gap:"6px"}}>
+                <input style={{...s.inp,flex:1}} placeholder="Kuch bhi poocho..." value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendChat()}/>
+                <button style={{...s.btn("blue"),whiteSpace:"nowrap"}} onClick={sendChat} disabled={chatLoading}>Send ↗</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>}
+
+      {/* ━━ TAB 1: READING ━━ */}
+      {tab===1&&<div style={s.page}>
+        <div style={{...s.card,background:"linear-gradient(135deg,#0d1f0d,#0a1a2e)",border:"1px solid #1a3a1a",padding:"14px"}}>
+          <div style={s.grid3}>
+            <div style={{textAlign:"center"}}><div style={{fontSize:"10px",color:"#5a8a5a",marginBottom:"3px"}}>PAGES</div><div style={{fontSize:"34px",fontWeight:700,color:"#4ade80",lineHeight:1}}>{todayReadPages}</div></div>
+            <div style={{textAlign:"center"}}><div style={{fontSize:"10px",color:"#5a6a8a",marginBottom:"3px"}}>VIDEO HRS</div><div style={{fontSize:"34px",fontWeight:700,color:"#60a5fa",lineHeight:1}}>{todayVideoHours}</div></div>
+            <div style={{textAlign:"center"}}><div style={{fontSize:"10px",color:"#8a5a6a",marginBottom:"3px"}}>FLASHCARDS</div><div style={{fontSize:"34px",fontWeight:700,color:"#f472b6",lineHeight:1}}>{todayFlashcards}</div></div>
+          </div>
+          <div style={{fontSize:"10px",color:"#3a4a50",marginTop:"6px",textAlign:"center"}}>{todayReading.length} sessions – {rdDate}</div>
+        </div>
+
+        <div style={s.card}>
+          <label style={s.lbl}>Reading Count</label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px"}}>
+            {SUBJECTS.map(subj=>{
+              const count=readCounts[subj]||0;
+              const color=count===0?"#2a2a45":count===1?"#7c3aed":count===2?"#2563eb":count===3?"#059669":"#d97706";
+              const label=count===0?"Not started":count===1?"1st read":count===2?"2nd read":count===3?"3rd read":count+"th read";
+              return(
+                <div key={subj} style={{background:"#070714",border:"1px solid "+(count>0?color+"55":"#1c1c32"),borderRadius:"10px",padding:"10px"}}>
+                  <div style={{fontSize:"11px",fontWeight:600,color:count>0?"#e8e0f0":"#3a3a5a",marginBottom:"3px"}}>{subj}</div>
+                  <div style={{fontSize:"10px",color:count>0?color:"#2a2a45",marginBottom:"6px"}}>{label}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
+                    <button onClick={()=>decrementReadCount(subj)} style={{width:"28px",height:"28px",borderRadius:"6px",border:"1px solid #2a2a45",background:"#0a0a18",color:"#f87171",cursor:"pointer",fontSize:"16px"}}>-</button>
+                    <div style={{flex:1,textAlign:"center",fontSize:"20px",fontWeight:700,color:count>0?color:"#2a2a45"}}>{count}</div>
+                    <button onClick={()=>incrementReadCount(subj)} style={{width:"28px",height:"28px",borderRadius:"6px",border:"1px solid #2a2a45",background:"#0a0a18",color:"#4ade80",cursor:"pointer",fontSize:"16px"}}>+</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={s.card}>
+          <label style={s.lbl}>Session Add Karo</label>
+          <div style={{marginBottom:"8px"}}><label style={s.lbl}>Date</label><input type="date" value={rdDate} onChange={e=>setRdDate(e.target.value)} style={s.inp}/></div>
+          <div style={{marginBottom:"8px"}}><label style={s.lbl}>Subject</label><select value={rdSubject} onChange={e=>setRdSubject(e.target.value)} style={s.sel}>{SUBJECTS.map(sub=><option key={sub}>{sub}</option>)}</select></div>
+          <div style={s.row}>
+            <div style={{flex:1}}><label style={s.lbl}>Pages</label><input type="number" min="0" placeholder="20" value={rdPages} onChange={e=>setRdPages(e.target.value)} style={s.inp}/></div>
+            <div style={{flex:1}}><label style={s.lbl}>From</label><input type="number" min="0" placeholder="45" value={rdFromPage} onChange={e=>setRdFromPage(e.target.value)} style={s.inp}/></div>
+            <div style={{flex:1}}><label style={s.lbl}>To</label><input type="number" min="0" placeholder="65" value={rdToPage} onChange={e=>setRdToPage(e.target.value)} style={s.inp}/></div>
+          </div>
+          <div style={s.row}>
+            <div style={{flex:1}}><label style={s.lbl}>Video (hr)</label><input type="number" min="0" step="0.5" placeholder="1.5" value={rdVideoHours} onChange={e=>setRdVideoHours(e.target.value)} style={s.inp}/></div>
+            <div style={{flex:1}}><label style={s.lbl}>Flashcards</label><input type="number" min="0" placeholder="30" value={rdFlashcards} onChange={e=>setRdFlashcards(e.target.value)} style={s.inp}/></div>
+          </div>
+          <button style={s.btn("green")} onClick={addReadingEntry}>✅ Save Session</button>
+        </div>
+
+        {todayReading.length>0&&<div style={s.card}>
+          <label style={s.lbl}>📋 {rdDate} Sessions</label>
+          {todayReading.map(e=><div key={e.id} style={{borderBottom:"1px solid #151525",padding:"8px 0"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:"13px",fontWeight:600,color:"#4ade80"}}>{e.subject}</span>
+              <div style={{display:"flex",gap:"5px",alignItems:"center"}}>
+                {(e.pages||0)>0&&<span style={s.badge("green")}>{e.pages}pg</span>}
+                {(e.videoHours||0)>0&&<span style={s.badge("blue")}>{e.videoHours}hr</span>}
+                {(e.flashcards||0)>0&&<span style={{...s.badge("blue"),background:"#2a0a2a",color:"#f472b6",border:"1px solid #7a1a5a"}}>{e.flashcards}FC</span>}
+                <button onClick={()=>deleteReadingEntry(rdDate,e.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#5a2a2a",fontSize:"14px"}}>✕</button>
+              </div>
+            </div>
+            {(e.fromPage&&e.toPage)&&<div style={{fontSize:"11px",color:"#4a5a70",marginTop:"2px"}}>p.{e.fromPage}–p.{e.toPage}</div>}
+          </div>)}
+        </div>}
+
+        {rdStats.totalPages>0&&<div style={s.card}>
+          <label style={s.lbl}>📊 All Time Stats</label>
+          <div style={s.grid3}>
+            <div style={{background:"#070714",border:"1px solid #1a2a1a",borderRadius:"8px",padding:"10px",textAlign:"center"}}><div style={{fontSize:"22px",fontWeight:700,color:"#4ade80"}}>{rdStats.totalPages}</div><div style={{fontSize:"9px",color:"#3a6a3a"}}>Pages</div></div>
+            <div style={{background:"#070714",border:"1px solid #1a2a3a",borderRadius:"8px",padding:"10px",textAlign:"center"}}><div style={{fontSize:"22px",fontWeight:700,color:"#60a5fa"}}>{rdStats.totalVideoHours||0}</div><div style={{fontSize:"9px",color:"#3a4a6a"}}>Video Hrs</div></div>
+            <div style={{background:"#070714",border:"1px solid #2a1a2a",borderRadius:"8px",padding:"10px",textAlign:"center"}}><div style={{fontSize:"22px",fontWeight:700,color:"#f472b6"}}>{rdStats.totalFlashcards||0}</div><div style={{fontSize:"9px",color:"#6a3a5a"}}>Flashcards</div></div>
+          </div>
+          <div style={{marginTop:"10px"}}>
+            {Object.entries(rdStats.bySubject).sort((a,b)=>b[1].pages-a[1].pages).map(([subj,data])=>{
+              const maxPg=Math.max(...Object.values(rdStats.bySubject).map(d=>d.pages),1);
+              return<div key={subj} style={{marginBottom:"8px"}}>
+                <div style={{display:"flex",justifyContent:"space-between",fontSize:"12px",marginBottom:"2px"}}>
+                  <span style={{color:"#a0d8a0"}}>{subj}</span>
+                  <div style={{display:"flex",gap:"4px",flexWrap:"wrap"}}>
+                    {(data.pages||0)>0&&<span style={s.badge("green")}>{data.pages}pg</span>}
+                    {(data.videoHours||0)>0&&<span style={s.badge("blue")}>{data.videoHours}hr</span>}
+                    <span style={s.badge("blue")}>{data.sessions}x</span>
+                  </div>
+                </div>
+                <div style={s.bar(Math.round((data.pages||0)/maxPg*100),"#22c55e")}/>
+              </div>;
+            })}
+          </div>
+        </div>}
+      </div>}
+
+      {/* ━━ TAB 2: QBANK ━━ */}
+      {tab===2&&<div style={s.page}>
+        <div style={s.card}>
+          <label style={s.lbl}>➕ QBank Entry</label>
+          <div style={{marginBottom:"8px"}}><label style={s.lbl}>Date</label><input type="date" value={qbankDate} onChange={e=>setQbankDate(e.target.value)} style={s.inp}/></div>
+          <div style={{marginBottom:"8px"}}><label style={s.lbl}>Subject</label><select value={qbankSubject} onChange={e=>setQbankSubject(e.target.value)} style={s.sel}>{SUBJECTS.map(sub=><option key={sub}>{sub}</option>)}</select></div>
+          <div style={{marginBottom:"8px"}}><label style={s.lbl}>Topic</label><input placeholder="e.g. Brachial Plexus" value={qbankTopic} onChange={e=>setQbankTopic(e.target.value)} style={s.inp}/></div>
+          <div style={s.row}>
+            <div style={{flex:1}}><label style={s.lbl}>Total Qs</label><input type="number" min="0" placeholder="50" value={qTotal} onChange={e=>setQTotal(e.target.value)} style={s.inp}/></div>
+            <div style={{flex:1}}><label style={s.lbl}>Wrong</label><input type="number" min="0" placeholder="12" value={qWrong} onChange={e=>setQWrong(e.target.value)} style={s.inp}/></div>
+          </div>
+          <div style={{marginBottom:"10px"}}><label style={s.lbl}>Notes</label><textarea placeholder="Weak concept?" value={qNotes} onChange={e=>setQNotes(e.target.value)} style={s.ta}/></div>
+          <button style={s.btn("blue")} onClick={addQBankEntry}>✅ Save</button>
+        </div>
+
+        <div style={s.card}>
+          <label style={s.lbl}>📸 Screenshots → AI</label>
+          <input type="file" ref={fileRef} multiple accept="image/*" style={{display:"none"}} onChange={e=>analyseScreenshots(e.target.files)}/>
+          <button style={s.btn("green")} onClick={()=>fileRef.current.click()} disabled={ssLoading}>{ssLoading?"🔄 Analysing...":"📤 Screenshots Upload"}</button>
+          {screenshotAnalysis&&<div style={s.aiBox}><div style={{fontSize:"9px",color:"#3a5a3a",marginBottom:"6px"}}>🔍 SCREENSHOT ANALYSIS</div>{screenshotAnalysis}</div>}
+        </div>
+
+        {todayQBank.length>0&&<div style={s.card}>
+          <label style={s.lbl}>📋 {qbankDate} Entries</label>
+          {todayQBank.map(e=><div key={e.id} style={{borderBottom:"1px solid #151525",padding:"7px 0"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:"12px",fontWeight:600,color:"#c4b5fd"}}>{e.subject}</span>
+              <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+                <span style={s.badge(e.total>0&&e.wrong/e.total>0.5?"red":"green")}>{e.wrong}/{e.total}W</span>
+                <button onClick={()=>deleteQBankEntry(qbankDate,e.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#5a2a2a",fontSize:"14px"}}>✕</button>
+              </div>
+            </div>
+            <div style={{fontSize:"11px",color:"#7a8aa8",marginTop:"2px"}}>{e.topic}</div>
+            {e.total>0&&<div style={s.bar(Math.min(100,e.wrong/e.total*100))}/>}
+          </div>)}
+        </div>}
+
+        {mistakes.length>0&&<div style={s.card}>
+          <label style={s.lbl}>🔴 Top Weak Topics</label>
+          {mistakes.map((m,i)=><div key={i} style={{marginBottom:"8px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:"12px"}}>
+              <span style={{color:"#c4b5fd",flex:1}}>{m.subject} <span style={{color:"#6a7a98"}}>→ {m.topic}</span></span>
+              <span style={s.badge("red")}>{m.wrong}W</span>
+            </div>
+            <div style={s.bar(Math.min(100,m.total>0?m.wrong/m.total*100:100))}/>
+          </div>)}
+        </div>}
+      </div>}
+
+      {/* ━━ TAB 3: REPORTS ━━ */}
+      {tab===3&&<div style={s.page}>
+        <div style={s.grid2}>
+          {[
+            {l:"Study Days",v:Object.keys(logs).length,col:"#a78bfa"},
+            {l:"Total Pages",v:rdStats.totalPages,col:"#4ade80"},
+            {l:"Video Hrs",v:rdStats.totalVideoHours,col:"#60a5fa"},
+            {l:"Flashcards",v:rdStats.totalFlashcards,col:"#f472b6"},
+            {l:"QBank Qs",v:Object.values(qbankData).flat().reduce((a,e)=>a+e.total,0),col:"#fbbf24"},
+            {l:"Cheat Days",v:Object.keys(cheatDays).length,col:"#fb923c"},
+          ].map((x,i)=>(
+            <div key={i} style={{...s.card,textAlign:"center",padding:"12px",marginBottom:0}}>
+              <div style={{fontSize:"20px",fontWeight:700,color:x.col,margin:"2px 0"}}>{x.v}</div>
+              <div style={{fontSize:"10px",color:"#3a4a60"}}>{x.l}</div>
+            </div>
+          ))}
+        </div>
+
+        {(()=>{
+          const last7=[...Array(7)].map((_,i)=>{
+            const d=new Date();d.setDate(d.getDate()-6+i);
+            const key=d.toISOString().split("T")[0];
+            const rd=readingData[key]||[],qb=qbankData[key]||[];
+            const dayGoals=goals[key]||[];
+            const overallP=getDayOverallPct(key);
+            return{day:d.toLocaleDateString("en",{weekday:"short"}),pages:rd.reduce((a,e)=>a+(e.pages||0),0),qTotal:qb.reduce((a,e)=>a+e.total,0),activeHours:Object.values(logs[key]||{}).filter(Boolean).length,isCheat:!!cheatDays[key],overallPct:overallP};
+          });
+          const maxPg=Math.max(...last7.map(d=>d.pages),1),maxQs=Math.max(...last7.map(d=>d.qTotal),1);
+          return(
+            <div style={s.card}>
+              <label style={s.lbl}>Last 7 Days</label>
+              <div style={{fontSize:"10px",color:"#5a6880",marginBottom:"6px"}}>🟢 Pages  🟣 QBank  🟠 Cheat</div>
+              <div style={{display:"flex",gap:"4px",alignItems:"flex-end",height:"80px",marginBottom:"10px"}}>
+                {last7.map((d,i)=>(
+                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"2px",height:"100%",justifyContent:"flex-end"}}>
+                    {d.isCheat
+                      ? <div style={{width:"100%",height:"40px",background:"#d97706",borderRadius:"4px 4px 0 0",opacity:0.7,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"14px"}}>🍕</div>
+                      : <div style={{width:"100%",display:"flex",gap:"1px",alignItems:"flex-end",height:"65px"}}>
+                          <div style={{flex:1,background:"#22c55e",borderRadius:"2px 2px 0 0",height:Math.max(4,Math.round(d.pages/maxPg*65))+"px",opacity:0.9}}/>
+                          <div style={{flex:1,background:"#7c3aed",borderRadius:"2px 2px 0 0",height:Math.max(d.qTotal>0?4:0,Math.round(d.qTotal/maxQs*65))+"px",opacity:0.9}}/>
+                        </div>
+                    }
+                    <div style={{fontSize:"8px",color:"#3a4a60"}}>{d.day}</div>
+                    {d.overallPct!==null&&!d.isCheat&&<div style={{fontSize:"7px",color:d.overallPct>=80?"#4ade80":d.overallPct>=50?"#fbbf24":"#f87171"}}>{d.overallPct}%</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
+        <div style={s.card}>
+          <label style={s.lbl}>📊 Report</label>
+          <div style={{display:"flex",gap:"6px",marginBottom:"12px",flexWrap:"wrap"}}>
+            {[["daily","📅 Daily"],["weekly","📆 Weekly"],["monthly","🗓️ Monthly"]].map(([t,l])=>(
+              <button key={t} onClick={()=>setReportType(t)} style={{...s.btn(reportType===t?"purple":"blue"),opacity:reportType===t?1:0.55}}>{l}</button>
+            ))}
+          </div>
+          <button style={{...s.btn("purple"),width:"100%",padding:"12px",fontSize:"13px"}} onClick={generateReport} disabled={reportLoading}>{reportLoading?"🔄 Generating...":"⚡ Report Generate Karo"}</button>
+        </div>
+
+        {reportOutput&&<div style={s.card}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px",flexWrap:"wrap",gap:"8px"}}>
+            <label style={s.lbl}>{reportType.toUpperCase()} REPORT</label>
+            <div style={{display:"flex",gap:"6px"}}>
+              <button style={s.btn("blue")} onClick={()=>{const el=document.createElement("a");el.href="data:text/plain;charset=utf-8,"+encodeURIComponent(reportOutput);el.download=`MBBS_${reportType}_${getToday()}.txt`;el.click();}}>💾 .txt</button>
+            </div>
+          </div>
+          <div style={s.aiBox}>{reportOutput}</div>
+        </div>}
+      </div>}
+
+      {/* ━━ TAB 4: SETTINGS ━━ */}
+      {tab===4&&<div style={s.page}>
+        <div style={s.card}>
+          <label style={s.lbl}>🔔 Hourly Reminders</label>
+          <div style={{marginBottom:"8px"}}>
+            <label style={s.lbl}>Wake-up Time (reminders isi se start honge)</label>
+            <input type="time" value={wakeTime} onChange={e=>{const v=e.target.value;setWakeTime(v);localStorage.setItem("wake_time",v);syncSW(v,sleepTime,notifEnabled,cheatDays);}} style={s.inp}/>
+          </div>
+          <div style={{marginBottom:"8px"}}>
+            <label style={s.lbl}>🌙 Sleep Time (notifications band hojayengi)</label>
+            <input type="time" value={sleepTime} onChange={e=>{const v=e.target.value;setSleepTime(v);localStorage.setItem("sleep_time",v);syncSW(wakeTime,v,notifEnabled,cheatDays);}} style={s.inp}/>
+          </div>
+          <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"8px"}}>
+            {!notifEnabled
+              ? <button style={s.btn("green")} onClick={enableNotifications}>🔔 Enable Notifications</button>
+              : <button style={s.btn("red")} onClick={()=>setNotifEnabled(false)}>🔕 Off Karo</button>
+            }
+            <button style={s.btn("blue")} onClick={()=>setShowWakeSetup(true)}>⏰ Kal ka Wake Time</button>
+          </div>
+          {notifEnabled && <button style={{...s.btn("blue"),marginBottom:"8px"}} onClick={()=>sendBrowserNotif("🩺 TargetPG Test","Notification kaam kar raha hai! ✅")}>🧪 Test Notification</button>}
+          {notifEnabled
+            ? <div style={{fontSize:"11px",color:"#34d399"}}>✅ ON – {wakeTime} se hourly notifications (app band ho toh bhi)</div>
+            : <div style={{fontSize:"11px",color:"#f87171"}}>❌ OFF</div>
+          }
+          <div style={{marginTop:"8px",fontSize:"10px",color:"#4a7a70",background:"#040f0d",padding:"10px",borderRadius:"6px",border:"1px solid #0a2a20",lineHeight:"1.8"}}>
+            <b style={{color:"#34d399"}}>📲 Background Notifications Setup (ek baar karo):</b><br/>
+            1. Upar "Enable Notifications" dabaao → Allow karo<br/>
+            2. Chrome → ⋮ Menu → Settings → Site Settings → Notifications → is site pe tap → Allow<br/>
+            3. Android Settings → Apps → Chrome → Battery → "Unrestricted" karo<br/>
+            4. Android Settings → Apps → Chrome → Background Activity → ON karo<br/>
+            <br/>
+            <b style={{color:"#facc15"}}>⚡ Yeh sab karne ke baad app band rehne pe bhi notifications aayengi!</b>
+          </div>
+        </div>
+
+        <div style={s.card}>
+          <label style={s.lbl}>🍕 Cheat Days</label>
+          <div style={{display:"flex",gap:"8px",marginBottom:"10px"}}>
+            <div style={{flex:1,background:"#070714",border:"1px solid #1c1c32",borderRadius:"8px",padding:"10px",textAlign:"center"}}>
+              <div style={{fontSize:"22px",fontWeight:700,color:"#fb923c"}}>{Object.keys(cheatDays).length}</div>
+              <div style={{fontSize:"9px",color:"#5a4a30"}}>Total</div>
+            </div>
+            <div style={{flex:1,background:"#070714",border:"1px solid "+(cheatDaysThisWeek()>=1?"#7f1d1d":"#1c1c32"),borderRadius:"8px",padding:"10px",textAlign:"center"}}>
+              <div style={{fontSize:"22px",fontWeight:700,color:cheatDaysThisWeek()>=1?"#f87171":"#fb923c"}}>{cheatDaysThisWeek()}/1</div>
+              <div style={{fontSize:"9px",color:"#5a4a30"}}>This Week</div>
+            </div>
+          </div>
+          <div style={{fontSize:"11px",color:"#5a6880",marginBottom:"10px",lineHeight:"1.7"}}>
+            <b style={{color:"#d97706"}}>Rules:</b> Sirf Sunday • Weekly avg targets ≥ 85% hona chahiye • Max 1/week<br/>
+            Recent: {Object.keys(cheatDays).sort().reverse().slice(0,3).join(", ")||"None yet"}
+          </div>
+          <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+            <button style={s.btn("orange")} onClick={()=>{setSelectedDate(getToday());setTab(0);setShowCheatConfirm(true);}}>🍕 Aaj Cheat Day Declare</button>
+            {cheatDays[getToday()]&&<button style={s.btn("red")} onClick={()=>revokeCheatDay(getToday())}>↩ Revoke Today</button>}
+          </div>
+        </div>
+
+        <div style={s.card}>
+          <label style={s.lbl}>🔑 Gemini API Key</label>
+          <p style={{fontSize:"11px",color:"#e87070",marginBottom:"8px",lineHeight:"1.6",background:"#2a0a0a",padding:"8px",borderRadius:"6px",border:"1px solid #5a1a1a"}}>
+            Free key: <b style={{color:"#60a5fa"}}>aistudio.google.com/apikey</b>
+          </p>
+          <input type="password" placeholder="AIzaSy..." value={apiKeyInput} onChange={e=>setApiKeyInput(e.target.value)} style={{...s.inp,marginBottom:"10px"}}/>
+          <button style={s.btn("green")} onClick={saveApiKey}>💾 Save Key</button>
+          {apiKey?<div style={{marginTop:"8px",fontSize:"11px",color:"#34d399"}}>✅ Key saved</div>:<div style={{marginTop:"8px",fontSize:"11px",color:"#f87171"}}>❌ Key nahi</div>}
+        </div>
+
+        <div style={s.card}>
+          <label style={s.lbl}>19 Subjects Progress</label>
+          {SUBJECTS.map((subj,i)=>{
+            const allE=Object.values(readingData).flat().filter(e=>e.subject===subj);
+            const rp=allE.reduce((a,e)=>a+e.pages,0);
+            const sessions=allE.length;
+            const lastRead=allE.length>0?allE.sort((a,b)=>b.date.localeCompare(a.date))[0].date:null;
+            const qd=Object.values(qbankData).flat().filter(e=>e.subject===subj);
+            const qt=qd.reduce((a,e)=>a+e.total,0),qw=qd.reduce((a,e)=>a+e.wrong,0);
+            const acc=qt?Math.round((1-qw/qt)*100):null;
+            const rc=readCounts[subj]||0;
+            const rcLabel=rc===0?"":rc===1?"1st":rc===2?"2nd":rc===3?"3rd":rc+"th";
+            const maxPg=Math.max(...SUBJECTS.map(s=>Object.values(readingData).flat().filter(e=>e.subject===s).reduce((a,e)=>a+e.pages,0)),1);
+            return(
+              <div key={subj} style={{borderBottom:"1px solid #111124",padding:"8px 0"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"3px"}}>
+                  <span style={{fontSize:"12px",fontWeight:600,color:rp>0?"#c4b5fd":"#3a3a5a"}}>{i+1}. {subj}</span>
+                  <div style={{display:"flex",gap:"4px",flexWrap:"wrap",justifyContent:"flex-end"}}>
+                    {rp>0&&<span style={s.badge("green")}>{rp}pg</span>}
+                    {rc>0&&<span style={{...s.badge("blue"),color:"#c4b5fd",background:"#1a0a2e",border:"1px solid #5b21b6"}}>{rcLabel}</span>}
+                    {acc!==null?<span style={s.badge(acc>=70?"green":"red")}>{acc}%</span>:<span style={{color:"#252535",fontSize:"10px"}}>not started</span>}
+                  </div>
+                </div>
+                {rp>0&&<div style={{height:"3px",borderRadius:"2px",background:"#1e1e35",marginBottom:"3px",overflow:"hidden"}}><div style={{height:"100%",width:Math.round(rp/maxPg*100)+"%",background:"linear-gradient(90deg,#7c3aed,#4ade80)",borderRadius:"2px"}}/></div>}
+                {rp>0&&lastRead&&<div style={{fontSize:"10px",color:"#4a5a70"}}>{sessions} sessions • Last: {lastRead}</div>}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={s.card}>
+          <label style={s.lbl}>💾 Backup & Restore</label>
+          <div style={{display:"flex",gap:"8px",flexWrap:"wrap",marginBottom:"12px"}}>
+            <button style={{...s.btn("green"),padding:"10px 16px"}} onClick={exportData}>📤 Export (.json)</button>
+            <button style={{...s.btn("blue"),padding:"10px 16px"}} onClick={()=>importRef.current.click()}>📥 Import</button>
+            <input type="file" ref={importRef} accept=".json" style={{display:"none"}} onChange={importData}/>
+          </div>
+          <label style={s.lbl}>🗑️ Delete</label>
+          <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
+            <button style={s.btn("red")} onClick={()=>{if(window.confirm("Daily logs delete?")){setLogs({});localStorage.removeItem("daily_logs");}}}>Daily</button>
+            <button style={s.btn("red")} onClick={()=>{if(window.confirm("Reading data delete?")){setReadingData({});localStorage.removeItem("reading_data");}}}>Reading</button>
+            <button style={s.btn("red")} onClick={()=>{if(window.confirm("QBank delete?")){setQbankData({});localStorage.removeItem("qbank_data");}}}>QBank</button>
+          </div>
+        </div>
+
+        <div style={{...s.card,textAlign:"center"}}>
+          <div style={{fontSize:"24px",marginBottom:"6px"}}>🩺</div>
+          <div style={{fontSize:"12px",color:"#6a7a98"}}>TargetPG v3.2</div>
+          <div style={{fontSize:"10px",color:"#353545",marginTop:"3px"}}>GitHub Pages • NEET PG Edition • Multi-Subject Targets</div>
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
